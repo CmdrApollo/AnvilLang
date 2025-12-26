@@ -4,10 +4,6 @@ var characters: string = ".,-~:;=!*#$@";
 var a: float = 1.0;
 var b: float = 1.0;
 
-fn clamp(value: float, minValue: float, maxValue: float) -> float {
-    return min(max(value, minValue), maxValue);
-}
-
 var zBuffer: arr<float> = [];
 var output: arr<string> = [];
 
@@ -46,8 +42,8 @@ while (true) {
             var d: float = 1.0 / (sinI * h * sinA + sinJ * cosA + 5.0);
             var t: float = sinI * h * cosA - sinJ * sinA;
 
-            var x: int = mathFloor(clamp(40 + 30 * d * (cosI * h * cosB - t * sinB), 0.0, 79.0));
-            var y: int = mathFloor(clamp(25 + 15 * d * (cosI * h * sinB + t * cosB), 0.0, 49.0));
+            var x: int = mathFloor(min(max((40 + 30 * d * (cosI * h * cosB - t * sinB)), 0.0), 79.0));
+            var y: int = mathFloor(min(max((25 + 15 * d * (cosI * h * sinB + t * cosB)), 0.0), 49.0));
             var o: int = y * 80 + x;
 
             if (d > zBuffer[o]) {

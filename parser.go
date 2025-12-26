@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"log"
 	"os"
 	"slices"
 	"strings"
@@ -739,12 +738,5 @@ func PrintParseNode(n *ParseNode, depth int) {
 }
 
 func (p *Parser) PrettyPrint() {
-	f, err := os.OpenFile("log.txt", os.O_WRONLY, 0644)
-	if err != nil {
-		log.Fatal(err)
-	}
-	if _, err := f.Write([]byte{}); err != nil {
-		log.Fatal(err)
-	}
 	PrintParseNode(&p.TreeNode, 0)
 }

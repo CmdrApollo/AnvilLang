@@ -1,12 +1,4 @@
-fn average(values: arr<float>) -> float {
-    var total: float = 0.0;
-
-    loop (values) -> (value: float) { total = total + value; }
-
-    return total / length(values);
-}
-
-var times: arr<float> = [];
+var times: float = 0.0;
 var n: int = 100; # number of trials
 var valueCount: int = 1000;
 
@@ -17,8 +9,8 @@ loop (unpack(n)) -> (_: int) {
         println(mathSin(i + 0.0));
     }
 
-    times = append(times, getTime() - startTime);
+    times = times + getTime() - startTime;
 }
 
 println("Average time to print " + toString(valueCount) + " values over " + toString(n) + " trials:");
-println(toString(average(times)) + " seconds.");
+println(toString(times / n) + " seconds.");

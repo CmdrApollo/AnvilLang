@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"math/rand"
 	"slices"
 	"strconv"
 )
@@ -50,6 +51,7 @@ const (
 	OP_MORE
 	OP_MORE_EQUAL
 	OP_GETITEM
+	OP_PACK
 	OP_LABEL
 )
 
@@ -85,6 +87,7 @@ func (o OpCode) ToString() string {
 		"OP_MORE",
 		"OP_MORE_EQUAL",
 		"OP_GETITEM",
+		"OP_PACK",
 		"OP_LABEL",
 	}[int(o)]
 }
@@ -210,12 +213,29 @@ func (c *Compiler) NewLabel() string {
 	return label
 }
 
+func (c *Compiler) DummyVar() string {
+	dummy := ""
+	for i := 0; i < 10; i++ {
+		dummy += string(byte(rand.Intn(256)))
+	}
+	return dummy
+}
+
 func (c * Compiler) MakeLabel(label string) CValue {
 	return CValue{
 		Type: CType{
 			Type: VAL_STRING,
 		},
 		StringValue: label,
+	}
+}
+
+func (c * Compiler) MakeInt(x int) CValue {
+	return CValue{
+		Type: CType{
+			Type: VAL_INT,
+		},
+		IntValue: x,
 	}
 }
 
@@ -303,6 +323,22 @@ func (c *Compiler) RunInstruction(node *ParseNode, startLabel string, endLabel s
 			},
 		)
 		break
+	case "array":
+		for i := len(node.Children) - 1; i >= 0; i--{
+			c.RunInstruction(node.Children[i], startLabel, endLabel)
+		}
+		c.Emit(
+			CInstruction{
+				Op: OP_PACK,
+				A: CValue{
+					Type: CType{
+						Type: VAL_INT,
+						IsNullable: false,
+					},
+					IntValue: len(node.Children),
+				},
+			},
+		)
 	// variable stuff
 	case "variable_decl":
 		varName := node.Children[0].Data
@@ -494,8 +530,13 @@ func (c *Compiler) RunInstruction(node *ParseNode, startLabel string, endLabel s
 		}
 	// get_item
 	case "get_item":
-		// TODO
-		break
+		c.RunInstruction(node.Children[0], startLabel, endLabel)
+		c.RunInstruction(node.Children[1], startLabel, endLabel)
+		c.Emit(
+			CInstruction{
+				Op: OP_GETITEM,
+			},
+		)
 	// control flow
 	case "while_stmt":
 		/*
@@ -535,6 +576,164 @@ func (c *Compiler) RunInstruction(node *ParseNode, startLabel string, endLabel s
 		)
 
 		c.EmitLabel(labelDone)
+		break
+	case "loop_stmt":
+		/*
+		CONST 0
+		STORE newLabel
+		CONST [...]
+		STORE arr
+		label_start
+			PUSH arr
+			PUSH newLabel
+			GET_ITEM
+			STORE varName
+			... body ...
+			PUSH newLabel
+			CONST 1
+			ADD
+			STORE newLabel
+			PUSH newLabel
+			PUSH arr
+			CALL_BUILTIN length 1
+			LESS
+			JUMP_IF label_start
+		...
+		*/
+		labelStart := c.NewLabel()
+		labelDone := c.NewLabel()
+		arrayVariable := c.DummyVar()
+		indexVariable := c.DummyVar()
+
+		varName := node.Children[1].Data
+
+		// TODO give a shit about type, again
+
+		suite := node.Children[3]
+
+		c.Emit(
+			CInstruction{
+				Op: OP_CONST,
+				A: c.MakeInt(0),
+			},
+		)
+		
+		c.Emit(
+			CInstruction{
+				Op: OP_STORE,
+				A: c.MakeLabel(indexVariable),
+			},
+		)
+
+		c.RunInstruction(node.Children[0], startLabel, endLabel)
+		
+		c.Emit(
+			CInstruction{
+				Op: OP_STORE,
+				A: c.MakeLabel(arrayVariable),
+			},
+		)
+
+		c.EmitLabel(labelStart)	
+		
+		c.Emit(
+			CInstruction{
+				Op: OP_PUSH,
+				A: c.MakeLabel(arrayVariable),
+			},
+		)
+
+		c.Emit(
+			CInstruction{
+				Op: OP_PUSH,
+				A: c.MakeLabel(indexVariable),
+			},
+		)
+
+		c.Emit(
+			CInstruction{
+				Op: OP_GETITEM,
+			},
+		)
+		
+		c.Emit(
+			CInstruction{
+				Op: OP_STORE,
+				A: c.MakeLabel(varName),
+			},
+		)
+
+		// suite
+
+		for _, child := range suite.Children {
+			c.RunInstruction(child, labelStart, labelDone)
+		}
+
+		c.Emit(
+			CInstruction{
+				Op: OP_PUSH,
+				A: c.MakeLabel(indexVariable),
+			},
+		)
+
+		c.Emit(
+			CInstruction{
+				Op: OP_CONST,
+				A: c.MakeInt(1),
+			},
+		)
+
+		c.Emit(
+			CInstruction{
+				Op: OP_ADD,
+			},
+		)
+
+		c.Emit(
+			CInstruction{
+				Op: OP_STORE,
+				A: c.MakeLabel(indexVariable),
+			},
+		)
+
+		c.Emit(
+			CInstruction{
+				Op: OP_PUSH,
+				A: c.MakeLabel(indexVariable),
+			},
+		)
+		
+
+		c.Emit(
+			CInstruction{
+				Op: OP_PUSH,
+				A: c.MakeLabel(arrayVariable),
+			},
+		)
+
+		c.Emit(
+			CInstruction{
+				Op: OP_CALL_BUILTIN,
+				A: c.MakeLabel("length"),
+				B: c.MakeInt(1),
+			},
+		)
+
+		c.Emit(
+			CInstruction{
+				Op: OP_LESS,
+			},
+		)
+
+		c.Emit(
+			CInstruction{
+				Op: OP_JUMP_IF,
+				A: c.MakeLabel(labelStart),
+			},
+		)
+
+		c.EmitLabel(labelDone)
+
 		break
 	case "continue_stmt":
 		c.Emit(
