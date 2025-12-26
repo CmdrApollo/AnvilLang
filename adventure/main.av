@@ -1,0 +1,127 @@
+import "strings.av";
+import "color.av";
+import "game.av";
+
+fn getArg(commands: arr<string>, index: int = 0) -> string? {
+    if (index < length(commands)) {
+        return commands[index];
+    }
+    return null;
+}
+
+# Query a room to find matching items within
+fn findItem(room: any, query: string) -> arr<any> {
+    # All items that match the query
+    var matches: arr<any> = [];
+    # Loop over all items
+    loop (room.seenItems) -> (item: any) {
+        if (lowerCase(item.name) == query) {
+            # If the item name 100% matches, skip checking the individual parts
+            matches = append(matches, item);
+        } else {
+            # Otherwise, check every part to check for a match
+            loop (split(item.name, " ")) -> (part: string) {
+                if (lowerCase(part) == query) {
+                    matches = append(matches, item);
+                }
+            }
+        }
+    }
+    return matches;
+}
+
+fn doLook(item: any) -> null {
+    println(itemToString(item));
+}
+
+var world: any = initWorld();
+
+var playerX: int = world.size / 2;
+var playerY: int = world.size / 2;
+
+world.rooms[playerY * world.size + playerX] = new Room{
+    "Prison Cell",
+    [
+        "This cramped room smells of must and reminds you",
+        "of things that you don't want to remember."
+    ],
+    [
+        new Item{
+            "Rusty Knife",
+            [
+                "This rusted knife is completely dull. It doesn't",
+                "seem to be of any use."
+            ]
+        },
+        new Item{
+            "Rusty Key",
+            [
+                "This rusted key appears to be very old. It",
+                "might be useful."
+            ]
+        }
+    ]
+};
+
+var currentState: any = new GameState{
+    world.rooms[playerY * world.size + playerX]
+};
+
+println("==================================================");
+println(" |   /||\\    ||//\\\\    ||    ||  ||||||||  ||   | ");
+println(" |  //  \\\\   ||   \\\\   ||    ||     ||     ||   | ");
+println(" | ||||||||  ||    ||   \\\\  //      ||     ||   | ");
+println(" | ||    ||  ||    ||    \\\\//    ||||||||  |||| | ");
+println("==================================================");
+
+var gameRunning: bool = true;
+while (gameRunning) {
+    println(gameStateToString(currentState));
+
+    var in: string = lowerCase(trim(replaceAll(input("? "), ",", "")));
+
+    var commands: arr<string> = split(in, " ");
+
+    var verb: string? = getArg(commands, 0);
+
+    if (verb == null) {
+        println("You can't do nothing!");
+        continue;
+    }
+
+    var targets: arr<string> = [];
+    loop (unpack(length(commands) - 1)) -> (i: int) {
+        var target: string? = getArg(commands, i + 1);
+        if (target != null) {
+            targets = append(targets, target);
+        }
+    }
+    var allTarget: string = join(targets, " ");
+
+    if (verb == "quit" || verb == "exit") {
+        println("Bye!");
+        gameRunning = false;
+    } else if (verb == "go") {
+        if (length(targets) < 1) {
+            println("Go where?");
+            continue;
+        }
+        println(targets[0]);
+    } else if (verb == "look") {
+        if (length(targets) < 1) {
+            println("Look at what?");
+            continue;
+        }
+        var matches: arr<any> = findItem(currentState.room, allTarget);
+        if (length(matches) == 0) {
+            println("You don't see that.");
+        } else if (length(matches) > 1) {
+            println("Multiple things match that query. Try being more specific!");
+        } else {
+            var item: any = matches[0];
+            doLook(item);
+        }
+    } else {
+        println("I don't know '" + verb + "'.");
+    }
+}

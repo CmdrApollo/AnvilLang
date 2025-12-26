@@ -1,0 +1,84 @@
+# Background color for the game
+var backgroundColor: string = "black";
+# Game size
+var gameWidth: int = 0;
+var gameHeight: int = 0;
+# Needed to center the drawing in the terminal
+var drawStartPos: any = new Point{};
+
+fn writeString(x: int, y: int, toWrite: string, foreground: string?, background: string?) -> null {
+    var i: int = x;
+    loop (unpack(toWrite)) -> (char: string) {
+        if (foreground != null) {
+            if (background != null) {
+                writeToTerminal(i, y, char, foreground, background);
+            } else {
+                writeToTerminal(i, y, char, foreground, backgroundColor);
+            }
+        } else {
+            writeToTerminal(i, y, char, "white", backgroundColor);
+        }
+        i = i + 1;
+    }
+}
+
+fn drawRect(x: int, y: int, w: int, h: int, color: string = "white", fill: bool = true) -> null {
+    # Loop over all x, y positions in the rectangle
+    loop (unpack(w)) -> (i: int) {
+        loop (unpack(h)) -> (j: int) {
+            # Determine the correct character
+            var char: string = " ";
+            if (i == 0 || i == w - 1) {
+                char = "|";
+            }
+            if (j == 0 || j == h - 1) {
+                char = "-";
+            }
+            if (
+                (i == 0 && j == 0) || 
+                (i == w - 1 && j == 0) || 
+                (i == 0 && j == h - 1) || 
+                (i == w - 1 && j == h - 1)
+            ) {
+                char = "+";
+            }
+            # Don't fill with spaces depending on the fill flag
+            if (!fill && char == " ") {
+                continue;
+            }
+            # Draw the character
+            writeToTerminal(drawStartPos.x + x + i, drawStartPos.y + y + j, char, color, backgroundColor);
+        }
+    }
+}
+
+fn drawEntity(entity: any) -> null {
+    if (entity.pos.x >= 0 && entity.pos.x < gameWidth && entity.pos.y >= 0 && entity.pos.y < gameHeight) {
+        writeToTerminal(drawStartPos.x + entity.pos.x, drawStartPos.y + entity.pos.y, entity.repr.char, entity.repr.fgColor, backgroundColor);
+    }
+}
+
+# Call to set up the terminal before drawing
+fn setupTerminal(width: int, height: int) -> bool {
+    # Start the terminal
+    startTerminal();
+
+    # Get the size of the terminal
+    var gameSize: arr<int> = terminalSize();
+
+    # The terminal must be of the proper size
+    if (gameSize[0] < width || gameSize[1] < height) {
+        return false;
+    }
+
+    # Set the global gameWidth and gameHeight variables
+    gameWidth = width;
+    gameHeight = height;
+
+    # Set the draw start position
+    drawStartPos.x = gameSize[0] / 2 - gameWidth / 2;
+    drawStartPos.y = gameSize[1] / 2 - gameHeight / 2;
+
+    # Terminal was of sufficient size, so return successfully
+    return true;
+}

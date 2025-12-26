@@ -1,0 +1,109 @@
+var gameWidth: int = 35;
+var gameHeight: int = 35;
+
+fn makeGrid() -> arr<bool> {
+    var grid: arr<bool> = [];
+
+    loop (unpack(gameWidth * gameHeight)) -> (_: int) {
+        grid = append(grid, false);
+    }
+
+    return grid;
+}
+
+fn stringRepeat(x: string, n: int) -> string {
+    var final: string = x;
+
+    loop(unpack(n - 1)) -> (i: int) {
+        final = final + x;
+    }
+
+    return final;
+}
+
+fn updateState(currentState: arr<bool>) -> arr<bool> {
+    var newState: arr<bool> = makeGrid();
+
+    loop (unpack(gameHeight)) -> (y: int) {
+        loop (unpack(gameWidth)) -> (x: int) {
+            var state: bool = false;
+            var curr: bool = currentState[y * gameWidth + x];
+    
+            var neighbors: int = 0;
+
+            loop (unpack(3)) -> (xo: int) {
+                loop (unpack(3)) -> (yo: int) {
+                    var xOffset: int = xo - 1;
+                    var yOffset: int = yo - 1;
+                    if (!((xOffset == 0 && yOffset == 0) || (x + xOffset) < 0 || (x + xOffset) >= gameWidth || (y + yOffset) < 0 || (y + yOffset) >= gameHeight)) {
+                        if (currentState[(y + yOffset) * gameWidth + (x + xOffset)]) {
+                            neighbors = neighbors + 1;
+                        }
+                    }
+                }
+            }
+
+            if (curr && (neighbors < 2)) {
+                state = false;
+            }
+
+            if (curr && (neighbors == 2 || neighbors == 3))
+            {
+                state = true;
+            }
+
+            if (curr && (neighbors > 3))
+            {
+                state = false;
+            }
+
+            if (!curr && neighbors == 3)
+            {
+                state = true;
+            }
+
+            newState[y * gameWidth + x] = state;
+        }
+    }
+
+    return newState;
+}
+
+fn drawState(oldState: arr<bool>, currentState: arr<bool>) -> string {
+    clearTerminal();
+    var printY: int = 0;
+    loop (unpack(gameHeight)) -> (y: int) {
+        var printX: int = 0;
+        loop (unpack(gameWidth)) -> (x: int) {
+            var color: string = "white";
+            if (currentState[y * gameWidth + x]) {
+                if (!oldState[y * gameWidth + x]) {
+                    color = "yellow";
+                }
+                writeToTerminal(printX * 2, printY, " ", "white", color);
+                writeToTerminal(printX * 2 + 1, printY, " ", "white", color);
+            }
+            printX = printX + 1;
+        }
+        printY = printY + 1;
+    }
+}
+
+var prevState: arr<bool> = [];
+var gameState: arr<bool> = [];
+
+loop (unpack(gameWidth * gameHeight)) -> (_: int) {
+    prevState = append(prevState, false);
+    gameState = append(gameState, randomValue() < 0.25);
+}
+
+startTerminal();
+
+while (true) {
+    drawState(prevState, gameState);
+    flushTerminal();
+    prevState = gameState;
+    gameState = updateState(gameState);
+}
+
+stopTerminal();

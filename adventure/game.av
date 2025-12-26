@@ -1,0 +1,61 @@
+st Item {
+    name: string = "Item",
+    description: arr<string> = ["This is an item."]
+}
+
+st Room {
+    name: string = "Room",
+    description: arr<string> = ["This is a room."],
+    seenItems: arr<any> = [],
+    hiddenItems: arr<any> = []
+}
+
+st World {
+    rooms: arr<any?>,
+    size: int
+}
+
+fn initWorld(size: int = 9) -> any {
+    var world: any = new World{};
+    world.size = size;
+
+    loop (unpack(world.size)) -> (y: int) {
+        loop (unpack(world.size)) -> (x: int) {
+            world.rooms = append(world.rooms, null);
+        }
+    }
+
+    return world;
+}
+
+st GameState {
+    room: any
+}
+
+fn itemToString(item: any) -> string {
+    var name: string = item.name;
+    var description: string = colorize("| " + join(item.description, "\n| "), "bright black");
+    var repr: string = colorize(name, "magenta") + "\n" + description + "\n";
+
+    return repr;
+}
+
+fn gameStateToString(gameState: any) -> string {
+    if (gameState.room == null) {
+        return "You are in an undefined room.";
+    }
+
+    var name: string = gameState.room.name;
+    var description: string = colorize("| " + join(gameState.room.description, "\n| "), "bright black");
+    var repr: arr<string> = [colorize(name, "cyan"), description];
+
+    if (length(gameState.room.seenItems) > 0) {
+        repr = append(repr, "");
+        repr = append(repr, colorize("You see", "yellow"));
+        loop (gameState.room.seenItems) -> (item: any) {
+            repr = append(repr, colorize("| " + item.name, "bright black"));
+        }
+    }
+
+    return join(repr, "\n") + "\n";
+}

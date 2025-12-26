@@ -1,0 +1,13 @@
+fn lots(n: int) -> string {
+    var final: string = "abc";
+    loop (unpack(n)) -> (i: int) {
+        if (i == 0) {
+            final = final + "ZERO";
+        } else {
+            final = final + final;
+        }
+    }
+    return final;
+};
+
+println(lots(5));

@@ -1,0 +1,420 @@
+fn writeString(x: int, y: int, toWrite: string, foreground: string?, background: string?) -> null {
+    var i: int = x;
+    loop (unpack(toWrite)) -> (char: string) {
+        if (foreground != null) {
+            if (background != null) {
+                writeToTerminal(i, y, char, foreground, background);
+            } else {
+                writeToTerminal(i, y, char, foreground, backgroundColor);
+            }
+        } else {
+            writeToTerminal(i, y, char, "white", backgroundColor);
+        }
+        i = i + 1;
+    }
+}
+
+fn drawRect(x: int, y: int, w: int, h: int, color: string = "white", fill: bool = true) -> null {
+    # Loop over all x, y positions in the rectangle
+    loop (unpack(w)) -> (i: int) {
+        loop (unpack(h)) -> (j: int) {
+            # Determine the correct character
+            var char: string = " ";
+            if (i == 0 || i == w - 1) {
+                char = "|";
+            }
+            if (j == 0 || j == h - 1) {
+                char = "-";
+            }
+            if (
+                (i == 0 && j == 0) || 
+                (i == w - 1 && j == 0) || 
+                (i == 0 && j == h - 1) || 
+                (i == w - 1 && j == h - 1)
+            ) {
+                char = "+";
+            }
+            # Don't fill with spaces depending on the fill flag
+            if (!fill && char == " ") {
+                continue;
+            }
+            # Draw the character
+            writeToTerminal(x + i, y + j, char, color, "black");
+        }
+    }
+}
+
+fn randomInt(n: int) -> int {
+    return mathFloor(n * randomValue());
+}
+
+fn clamp(a: int, b: int, c: int) -> int {
+    return mathFloor(min(max(a, b), c));
+}
+
+st Gem {
+    type: int,
+    exists: bool,
+    remove: bool,
+    bomb: bool,
+    repr: string = "..",
+    color: string = "white"
+}
+
+var gems: arr<any> = [];
+var boardWidth: int = 9;
+var boardHeight: int = 9;
+loop (unpack(boardHeight)) -> (y: int) {
+    loop (unpack(boardWidth)) -> (x: int) {
+        gems = append(gems, new Gem{
+            randomInt(6),
+            false,
+            false,
+            false
+        });
+    }
+}
+
+fn drawGem(gem: any) -> null {
+    if (!gem.exists) {
+        gem.repr = "..";
+        gem.color = "gray";
+        return null;
+    } else if (gem.bomb) {
+        gem.repr = "**";
+        if (gem.remove) {
+            gem.repr = "%%"; 
+        }
+    } else {
+        if (gem.type == 0) {
+            gem.repr = "XX";
+            gem.color = "red";
+        } else if (gem.type == 1) {
+            gem.repr = "==";
+            gem.color = "yellow";
+        } else if (gem.type == 2) {
+            gem.repr = "<>";
+            gem.color = "green";
+        } else if (gem.type == 3) {
+            gem.repr = "()";
+            gem.color = "blue";
+        } else if (gem.type == 4) {
+            gem.repr = "{}";
+            gem.color = "magenta";
+        } else if (gem.type == 5) {
+            gem.repr = "[]";
+            gem.color = "cyan";
+        }
+    }
+    
+    if (gem.remove) {
+        gem.color = "white";
+    }
+}
+
+fn doSwap(x1: int, y1: int, x2: int, y2: int) -> null {
+    var temp: any = gems[y1 * boardWidth + x1];
+    gems[y1 * boardWidth + x1] = gems[y2 * boardWidth + x2];
+    gems[y2 * boardWidth + x2] = temp;
+}
+
+fn drawGame() -> null {
+    loop (unpack(boardHeight)) -> (y: int) {
+        loop (unpack(boardWidth)) -> (x: int) {
+            drawGem(gems[y * boardWidth + x]);
+        }
+    }
+}
+
+fn renderGame(startX: int, startY: int, hx: int, hy: int, score: int) -> null {
+    clearTerminal();
+    drawRect(startX, startY, boardWidth * 2 + 2, boardHeight + 2, "white");
+    loop (unpack(boardHeight)) -> (y: int) {
+        loop (unpack(boardWidth)) -> (x: int) {
+            var gem: any = gems[y * boardWidth + x];
+            if (x == hx && y == hy) {
+                writeToTerminal(startX + 1 + x * 2, startY + 1 + y, gem.repr[0], "black", gem.color);
+                writeToTerminal(startX + 1 + x * 2 + 1, startY + 1 + y, gem.repr[1], "black", gem.color);
+            } else {
+                writeToTerminal(startX + 1 + x * 2, startY + 1 + y, gem.repr[0], gem.color, "black");
+                writeToTerminal(startX + 1 + x * 2 + 1, startY + 1 + y, gem.repr[1], gem.color, "black");
+            }
+        }
+    }
+    var scoreString: string = "Score: " + toString(score);
+    writeString(startX + boardWidth * 2 + 2 - length(scoreString), startY + boardHeight + 2, scoreString, "white", "black");
+    flushTerminal();
+}
+
+var STATE_USER: int = 0;
+var STATE_SWAP: int = 1;
+var STATE_CHECK: int = 2;
+var STATE_ERASE: int = 3;
+var STATE_COMPRESS: int = 4;
+var STATE_NEWGEMS: int = 5;
+
+var cursorX: int = 4;
+var cursorY: int = 4;
+var swapX: int = cursorX;
+var swapY: int = cursorY;
+
+var gemsToRemove: bool = false;
+
+var state: int = STATE_USER;
+var nextState: int = STATE_USER;
+
+var delayTime: float = 0.0;
+
+var totalGems: int = 0;
+var score: int = 0;
+
+startTerminal();
+
+var terminalSize: arr<int> = terminalSize();
+
+var startX: int = terminalSize[0] / 2 - (boardWidth + 1);
+var startY: int = terminalSize[1] / 2 - boardHeight / 2;
+
+var time: float = getTime();
+var deltaTime: float = 0.0;
+
+var gem: any? = null;
+
+while (true) {
+    drawGame();
+    renderGame(startX, startY, cursorX, cursorY, score);
+
+    deltaTime = getTime() - time;
+    time = getTime();
+
+    if (delayTime > 0.0) {
+        delayTime = delayTime - deltaTime;
+        continue;
+    }
+
+    if (state == STATE_USER) {
+        if (totalGems < boardWidth * boardHeight) {
+            nextState = STATE_COMPRESS;
+        } else {
+            var in: string = readFromTerminal();
+
+            if (in == "q") {
+                break;
+            }
+            
+            if (in != " ") {
+                var dx: int = 0;
+                var dy: int = 0;
+
+                if (in == "LEFT") {
+                    dx = 0-1;
+                } else if (in == "RIGHT") {
+                    dx = 1;
+                } else if (in == "UP") {
+                    dy = 0-1;
+                } else if (in == "DOWN") {
+                    dy = 1;
+                }
+
+                cursorX = clamp(cursorX + dx, 0, boardWidth - 1);
+                cursorY = clamp(cursorY + dy, 0, boardHeight - 1);
+            } else {
+                in = readFromTerminal();
+
+                swapX = cursorX;
+                swapY = cursorY;
+
+                if (in == "LEFT") {
+                    swapX = clamp(cursorX-1, 0, boardWidth-1);
+                } else if (in == "RIGHT") {
+                    swapX = clamp(cursorX+1, 0, boardWidth-1);
+                } else if (in == "UP") {
+                    swapY = clamp(cursorY-1, 0, boardHeight-1);
+                } else if (in == "DOWN") {
+                    swapY = clamp(cursorY+1, 0, boardHeight-1);
+                }
+
+                if (swapX != cursorX || swapY != cursorY) {
+                    nextState = STATE_SWAP;
+                }
+            }
+        }
+    } else if (state == STATE_SWAP) {
+        delayTime = 0.1;
+
+        # swapping code
+        doSwap(cursorX, cursorY, swapX, swapY);
+
+        nextState = STATE_CHECK;
+    } else if (state == STATE_CHECK) {
+        gemsToRemove = false;
+
+        loop (unpack(boardWidth)) -> (x: int) {
+            loop (unpack(boardHeight)) -> (y: int) {
+                gem = gems[y * boardWidth + x];
+                if (!gem.remove) {
+                    var placeBomb: bool = false;
+
+                    # check horizontal
+
+                    var chain: int = 1;
+                    var nextGem: any? = null;
+                    if ((chain + x) < boardWidth) {
+                        nextGem = gems[y * boardWidth + x + chain];
+                        while (gem.type == nextGem.type && (chain + x) < boardWidth) {
+                            chain = chain + 1;
+                            if ((chain + x) < boardWidth) {
+                                nextGem = gems[y * boardWidth + x + chain];
+                            }
+                        }
+                    }
+
+                    if (chain >= 3) {
+                        score = score + chain;
+
+                        if (chain >= 4) {
+                            placeBomb = true;
+                        }
+
+                        while (chain > 0) {
+                            nextGem = gems[y * boardWidth + x + chain - 1];
+                            nextGem.remove = true;
+
+                            if (nextGem.bomb) {
+                                score = score + 50;
+                                
+                                loop ([-2, -1, 0, 1, 2]) -> (i: int) {
+                                    loop ([-2, -1, 0, 1, 2]) -> (j: int) {
+                                        if (abs(i) == 2 && abs(j) == 2) {
+                                            continue;
+                                        }
+                                        var m: int = clamp(i + (x + chain - 1), 0, boardWidth - 1);
+                                        var n: int = clamp(j + y, 0, boardHeight - 1);
+                                        var removeGem: any = gems[n * boardWidth + m];
+                                        removeGem.remove = true;
+                                    }
+                                }
+                            }
+
+                            chain = chain - 1;
+                            gemsToRemove = true;
+                        }
+                    }
+
+                    # check vertical
+
+                    chain = 1;
+                    nextGem = null;
+                    if ((chain + y) < boardHeight) {
+                        nextGem = gems[(y + chain) * boardWidth + x];
+                        while (gem.type == nextGem.type && (chain + y) < boardHeight) {
+                            chain = chain + 1;
+                            if ((chain + y) < boardHeight) {
+                                nextGem = gems[(y + chain) * boardWidth + x];
+                            }
+                        }
+                    }
+
+                    if (chain >= 3) {
+                        score = score + chain;
+
+                        if (chain >= 4) {
+                            placeBomb = true;
+                        }
+
+                        while (chain > 0) {
+                            nextGem = gems[(y + chain - 1) * boardWidth + x];
+                            nextGem.remove = true;
+
+                            if (nextGem.bomb) {
+                                score = score + 50;
+
+                                loop ([-2, -1, 0, 1, 2]) -> (i: int) {
+                                    loop ([-2, -1, 0, 1, 2]) -> (j: int) {
+                                        if (abs(i) == 2 && abs(j) == 2) {
+                                            continue;
+                                        }
+                                        var m: int = clamp(i + x, 0, boardWidth - 1);
+                                        var n: int = clamp(j + (y + chain - 1), 0, boardHeight - 1);
+                                        var removeGem: any = gems[n * boardWidth + m];
+                                        removeGem.remove = true;
+                                    }
+                                }
+                            }
+
+                            chain = chain - 1;
+                            gemsToRemove = true;
+                        }
+                    }
+                    
+                    # check bomb
+                    if (placeBomb) {
+                        gem.bomb = true;
+                        gem.remove = false;
+                    }
+                }
+            }
+        }
+
+        if (gemsToRemove) {
+            delayTime = 0.25;
+        }
+
+        nextState = STATE_ERASE;
+    } else if (state == STATE_ERASE) {
+        if (!gemsToRemove) {
+            nextState = STATE_USER;
+        } else {
+            loop (unpack(boardWidth)) -> (x: int) {
+                loop(unpack(boardHeight)) -> (y: int) {
+                    gem = gems[y * boardWidth + x];
+
+                    if (gem.remove) {
+                        gem.exists = false;
+                        gem.bomb = false;
+
+                        totalGems = totalGems - 1;
+                    }
+                }
+            }
+
+            nextState = STATE_COMPRESS;
+        }
+    } else if (state == STATE_COMPRESS) {
+        loop (unpack(boardWidth)) -> (x: int) {
+            loop(unpack(boardHeight - 1)) -> (y: int) {
+                gem = gems[y * boardWidth + x];
+                var nextGem: any = gems[(y + 1) * boardWidth + x];
+                if (gem.exists && !nextGem.exists) {
+                    doSwap(x, y, x, y + 1);
+                }
+            }
+        }
+
+        delayTime = 0.1;
+        nextState = STATE_NEWGEMS;
+    } else if (state == STATE_NEWGEMS) {
+        loop (unpack(boardWidth)) -> (x: int) {
+            gem = gems[x];
+
+            if (!gem.exists) {
+                gem.exists = true;
+                gem.remove = false;
+                gem.bomb = false;
+                gem.type = randomInt(6);
+                totalGems = totalGems + 1;
+            }
+        }
+
+        if (totalGems < boardWidth * boardHeight) {
+            delayTime = 0.1;
+            nextState = STATE_COMPRESS;
+        } else {
+            nextState = STATE_CHECK;
+        }
+    }
+        
+    state = nextState;
+}
+
+stopTerminal();

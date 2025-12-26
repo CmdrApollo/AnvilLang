@@ -1,0 +1,115 @@
+fn repeat(x: string, n: int) -> string {
+    var final: string = x;
+
+    loop(unpack(n - 1)) -> (_: int) {
+        final = final + x;
+    }
+
+    return final;
+}
+
+fn join(x: arr<string>, glueString: string) -> string {
+    var final: string = "";
+    loop (unpack(length(x))) -> (i: int) {
+        final = final + x[i];
+        if (i != length(x) - 1) {
+            final = final + glueString;
+        }
+    }
+    return final;
+}
+
+fn replaceAll(x: string, oldChar: string, newString: string) -> string {
+    var final: string = "";
+    loop (unpack(x)) -> (char: string) {
+        if (char == oldChar) {
+            final = final + newString;
+        } else {
+            final = final + char;
+        }
+    }
+    return final;
+}
+
+fn trimLeft(x: string) -> string {
+    var final: string = "";
+    var foundBody: bool = false;
+    loop (unpack(length(x))) -> (i: int) {
+        if (!foundBody) {
+            if (x[i] == " ") {
+                continue;
+            } else {
+                foundBody = true;
+                final = final + x[i];
+            }
+        } else {
+            final = final + x[i];
+        }
+    }
+    return final;
+}
+
+fn trimRight(x: string) -> string {
+    var final: string = "";
+    var foundBody: bool = false;
+    loop (unpack(length(x))) -> (i: int) {
+        var j: int = length(x) - (i + 1);
+        if (!foundBody) {
+            if (x[j] == " ") {
+                continue;
+            } else {
+                foundBody = true;
+                final = x[j] + final;
+            }
+        } else {
+            final = x[j] + final;
+        }
+    }
+    return final;
+}
+
+fn trim(x: string) -> string {
+    return trimLeft(trimRight(x));
+}
+
+fn lowerCase(x: string) -> string {
+    var final: string = "";
+    loop (unpack(x)) -> (char: string) {
+        if (ordinal(char) >= ordinal("A") && ordinal(char) <= ordinal("Z")) {
+            final = final + unicode(ordinal("a") + ordinal(char) - ordinal("A"));
+        } else {
+            final = final + char;
+        }
+    }
+    return final;
+}
+
+fn upperCase(x: string) -> string {
+    var final: string = "";
+    loop (unpack(x)) -> (char: string) {
+        if (ordinal(char) >= ordinal("a") && ordinal(char) <= ordinal("z")) {
+            final = final + unicode(ordinal("A") + ordinal(char) - ordinal("a"));
+        } else {
+            final = final + char;
+        }
+    }
+    return final;
+}
+
+fn split(x: string, sepChar: string) -> arr<string> {
+    var final: arr<string> = [];
+    var curr: string = "";
+
+    loop (unpack(x)) -> (char: string) {
+        if (char == sepChar) {
+            final = append(final, curr);
+            curr = "";
+        } else {
+            curr = curr + char;
+        }
+    }
+    if (curr != "") {
+        final = append(final, curr);
+    }
+    return final;
+}

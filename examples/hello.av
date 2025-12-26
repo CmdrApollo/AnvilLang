@@ -1,0 +1,7 @@
+fn exclaim(x: string) -> string {
+    return x + "!";
+}
+
+var myInput: string = input("?");
+
+print(exclaim(myInput));

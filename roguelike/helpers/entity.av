@@ -1,0 +1,12 @@
+st Point { x: int, y: int }
+
+st EntityRepr {
+    name: string,
+    char: string,
+    fgColor: string
+}
+
+st Entity {
+    repr: any,
+    pos: any
+}

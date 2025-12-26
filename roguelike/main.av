@@ -1,0 +1,76 @@
+import "helpers/entity.av";
+import "helpers/terminal.av";
+
+# Re-usable representation for rats
+var ratRepr: any = new EntityRepr{"rat", "r", "red"};
+
+# Player Entity
+var player: any = new Entity{
+    new EntityRepr{"player", "@", "yellow"},
+    new Point{20, 20}
+};
+
+# Set up entities
+var rats: arr<any> = [
+    new Entity{ratRepr, new Point{5, 5}},
+    new Entity{ratRepr, new Point{7, 9}}
+];
+
+# Terminal must be at least 80x30
+if (setupTerminal(80, 30)) {
+    # Game loop
+    var runGame: bool = true;
+    while (runGame) {
+        # Drawing code
+        clearTerminal();
+        drawRect(0, 0, gameWidth, gameHeight);
+        # Draw player
+        drawEntity(player);
+        # Draw rats
+        loop (rats) -> (rat: any) {
+            drawEntity(rat);
+        }
+        # Draw title string
+        writeString(drawStartPos.x + 2, drawStartPos.y, "DemoRL", "white", backgroundColor);
+        # This line is very important.
+        # Equivalent to pygame.display.flip
+        flushTerminal();
+
+        # Get string input (blocking).
+        var in: string = readFromTerminal();
+
+        # Quit on CTRL+C
+        if (in == "CTRL+C") {
+            runGame = false;
+        }
+
+        # Movement code
+        var dx: int = 0;
+        var dy: int = 0;
+
+        if (in == "UP") {
+            dy = dy - 1;
+        }
+        if (in == "DOWN") {
+            dy = dy + 1;
+        }
+        if (in == "LEFT") {
+            dx = dx - 1;
+        }
+        if (in == "RIGHT") {
+            dx = dx + 1;
+        }
+
+        if (dx != 0 || dy != 0) {
+            player.pos.x = player.pos.x + dx;
+            player.pos.y = player.pos.y + dy;
+        }
+    }
+
+    # Restore the terminal
+    stopTerminal();
+} else {
+    # Terminal must be at least 80x30
+    stopTerminal();
+    println("You must have a terminal of at least 80x30 to play. Sorry!");
+}

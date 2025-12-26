@@ -1,0 +1,40 @@
+fn colorToAnsiNumber(c: string) -> int {
+    if (c == "black") {
+        return 30;
+    } else if (c == "red") {
+        return 31;
+    } else if (c == "green") {
+        return 32;
+    } else if (c == "yellow") {
+        return 33;
+    } else if (c == "blue") {
+        return 34;
+    } else if (c == "magenta") {
+        return 35;
+    } else if (c == "cyan") {
+        return 36;
+    } else if (c == "white") {
+        return 37;
+    } else if (c == "bright black") {
+        return 90;
+    } else if (c == "bright red") {
+        return 91;
+    } else if (c == "bright green") {
+        return 92;
+    } else if (c == "bright yellow") {
+        return 93;
+    } else if (c == "bright blue") {
+        return 94;
+    } else if (c == "bright magenta") {
+        return 95;
+    } else if (c == "bright cyan") {
+        return 96;
+    } else if (c == "bright white") {
+        return 97;
+    }
+    return 39;
+}
+
+fn colorize(x: string, color: string) -> string {
+    return "\e[" + toString(colorToAnsiNumber(color)) + "m" + x + "\e[39m";
+}

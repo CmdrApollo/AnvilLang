@@ -1,0 +1,15 @@
+st Entity {
+    x: float,
+    y: float
+}
+
+fn root(x: float) -> float {
+    return mathPow(x, 0.5);
+}
+
+fn distance(a: any, b: any) -> float {
+    return root(
+        mathPow(a.x - b.x, 2.0) +
+        mathPow(a.y - b.y, 2.0)
+    );
+}

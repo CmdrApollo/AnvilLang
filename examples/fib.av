@@ -1,0 +1,52 @@
+# fn fibonacci(n: int) -> arr<int> {
+#     var results: arr<int> = [];
+# 
+#     var x: int = 0;
+#     var y: int = 1;
+#     var z: int = 0;
+# 
+#     results = append(results, x);
+#     if (n > 1) {
+#         results = append(results, y);
+#     }
+# 
+#     n = n - 2;
+# 
+#     while (n > 0) {
+#         z = x + y;
+#         results = append(results, z);
+#         x = y;
+#         y = z;
+# 
+#         n = n - 1;
+#     }
+# 
+#     return results;
+# }
+# 
+# var fib: arr<int> = fibonacci(20);
+# 
+# println(fib, length(fib));
+# 
+# 
+# fn makeArr(size: int) -> arr<int?>? {
+#     var newArr: arr<int?>? = null;
+#     return newArr;
+# }
+# 
+# var myArr: arr<int?>? = makeArr(3);
+# 
+# println(myArr);
+# 
+# fn makeArr<T?>(size: int) -> arr<T?> {
+#     var newArr: arr<T?> = [];
+#     loop(size) {
+#         newArr = append<T?>(newArr, null);
+#     }
+#     return newArr;
+# }
+
+var n: int = 10;
+loop (unpack(n)) -> (i: int) {
+    println(i);
+}

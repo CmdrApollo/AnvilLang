@@ -1,0 +1,15 @@
+var myMap: map<string, int> = {
+    "this" = 0,
+    "is" = 1,
+    "a" = 2,
+    "test" = 3
+};
+
+myMap["hello"] = 1;
+myMap["world"] = 2;
+
+loop (pairs(myMap)) -> (pair: arr<any?>) {
+    println(pair);
+}
+
+println(myMap["hello"]);
