@@ -59,10 +59,10 @@ while (true) {
                 output[o] = characters[characterIndex];
             }
 
-            i = i + 0.2;
+            i = i + 0.02;
         }
 
-        j = j + 0.7;
+        j = j + 0.07;
     }
 
     println("\e[H");

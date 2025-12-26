@@ -1,11 +1,10 @@
-var x: int = 10000;
-var y: float = 0;
+var x: int = 1000;
 
 while (x > 0) {
     if (x % 2 == 0) {
-        println(y);
+        println(x);
     } else {
-        y = println("X is odd!");
+        println("X is odd!");
     }
 
     x = x - 1;

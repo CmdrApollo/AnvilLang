@@ -232,7 +232,7 @@ func (c *Compiler) EmitLabel(label string) {
 	)
 }
 
-func (c *Compiler) RunInstruction(node ParseNode, startLabel string, endLabel string) {
+func (c *Compiler) RunInstruction(node *ParseNode, startLabel string, endLabel string) {
 	switch node.Name {
 	// literals
 	case "int_literal":
@@ -305,7 +305,7 @@ func (c *Compiler) RunInstruction(node ParseNode, startLabel string, endLabel st
 		break
 	// variable stuff
 	case "variable_decl":
-		varName := node.Children[0].(ParseNode).Data
+		varName := node.Children[0].Data
 
 		_, ok := c.Variables[varName]
 
@@ -314,10 +314,10 @@ func (c *Compiler) RunInstruction(node ParseNode, startLabel string, endLabel st
 		}
 		
 		// type expection
-		c.RunInstruction(node.Children[1].(ParseNode), startLabel, endLabel)
+		c.RunInstruction(node.Children[1], startLabel, endLabel)
 
 		// value
-		c.RunInstruction(node.Children[2].(ParseNode), startLabel, endLabel)
+		c.RunInstruction(node.Children[2], startLabel, endLabel)
 		
 		c.Emit(
 			CInstruction{
@@ -328,8 +328,8 @@ func (c *Compiler) RunInstruction(node ParseNode, startLabel string, endLabel st
 
 		c.Variables[varName] = true
 	case "mut_stmt":
-		varName := node.Children[0].(ParseNode).Data
-		c.RunInstruction(node.Children[1].(ParseNode), startLabel, endLabel)
+		varName := node.Children[0].Data
+		c.RunInstruction(node.Children[1], startLabel, endLabel)
 		
 		c.Emit(
 			CInstruction{
@@ -362,9 +362,9 @@ func (c *Compiler) RunInstruction(node ParseNode, startLabel string, endLabel st
 		break
 	// math stuff
 	case "addsub_operation":
-		c.RunInstruction(node.Children[0].(ParseNode), startLabel, endLabel)
-		c.RunInstruction(node.Children[2].(ParseNode), startLabel, endLabel)
-		op := node.Children[1].(ParseNode).Data
+		c.RunInstruction(node.Children[0], startLabel, endLabel)
+		c.RunInstruction(node.Children[2], startLabel, endLabel)
+		op := node.Children[1].Data
 		if op == "plus" {
 			c.Emit(
 				CInstruction{
@@ -394,7 +394,7 @@ func (c *Compiler) RunInstruction(node ParseNode, startLabel string, endLabel st
 			},
 		)
 		// whatever to negate
-		c.RunInstruction(node.Children[0].(ParseNode), startLabel, endLabel)
+		c.RunInstruction(node.Children[0], startLabel, endLabel)
 		// emit 0 - X
 		c.Emit(
 			CInstruction{
@@ -403,9 +403,9 @@ func (c *Compiler) RunInstruction(node ParseNode, startLabel string, endLabel st
 		)
 		break
 	case "muldiv_operation":
-		c.RunInstruction(node.Children[0].(ParseNode), startLabel, endLabel)
-		c.RunInstruction(node.Children[2].(ParseNode), startLabel, endLabel)
-		op := node.Children[1].(ParseNode).Data
+		c.RunInstruction(node.Children[0], startLabel, endLabel)
+		c.RunInstruction(node.Children[2], startLabel, endLabel)
+		op := node.Children[1].Data
 		if op == "star" {
 			c.Emit(
 				CInstruction{
@@ -427,9 +427,9 @@ func (c *Compiler) RunInstruction(node ParseNode, startLabel string, endLabel st
 		}
 		break
 	case "comparison_operation":
-		c.RunInstruction(node.Children[0].(ParseNode), startLabel, endLabel)
-		c.RunInstruction(node.Children[2].(ParseNode), startLabel, endLabel)
-		op := node.Children[1].(ParseNode).Data
+		c.RunInstruction(node.Children[0], startLabel, endLabel)
+		c.RunInstruction(node.Children[2], startLabel, endLabel)
+		op := node.Children[1].Data
 
 		var opcode OpCode
 
@@ -450,8 +450,8 @@ func (c *Compiler) RunInstruction(node ParseNode, startLabel string, endLabel st
 			},
 		)
 	case "or_operation":
-		c.RunInstruction(node.Children[0].(ParseNode), startLabel, endLabel)
-		c.RunInstruction(node.Children[2].(ParseNode), startLabel, endLabel)	
+		c.RunInstruction(node.Children[0], startLabel, endLabel)
+		c.RunInstruction(node.Children[2], startLabel, endLabel)	
 
 		c.Emit(
 			CInstruction{
@@ -459,8 +459,8 @@ func (c *Compiler) RunInstruction(node ParseNode, startLabel string, endLabel st
 			},
 		)
 	case "and_operation":
-		c.RunInstruction(node.Children[0].(ParseNode), startLabel, endLabel)
-		c.RunInstruction(node.Children[2].(ParseNode), startLabel, endLabel)	
+		c.RunInstruction(node.Children[0], startLabel, endLabel)
+		c.RunInstruction(node.Children[2], startLabel, endLabel)	
 
 		c.Emit(
 			CInstruction{
@@ -468,7 +468,7 @@ func (c *Compiler) RunInstruction(node ParseNode, startLabel string, endLabel st
 			},
 		)
 	case "not_operation":
-		c.RunInstruction(node.Children[0].(ParseNode), startLabel, endLabel)
+		c.RunInstruction(node.Children[0], startLabel, endLabel)
 
 		c.Emit(
 			CInstruction{
@@ -476,9 +476,9 @@ func (c *Compiler) RunInstruction(node ParseNode, startLabel string, endLabel st
 			},
 		)
 	case "equality_operation":
-		c.RunInstruction(node.Children[0].(ParseNode), startLabel, endLabel)
-		c.RunInstruction(node.Children[2].(ParseNode), startLabel, endLabel)
-		op := node.Children[1].(ParseNode).Data
+		c.RunInstruction(node.Children[0], startLabel, endLabel)
+		c.RunInstruction(node.Children[2], startLabel, endLabel)
+		op := node.Children[1].Data
 		if op == "equal_equal" {
 			c.Emit(
 				CInstruction{
@@ -510,11 +510,11 @@ func (c *Compiler) RunInstruction(node ParseNode, startLabel string, endLabel st
 		labelStart := c.NewLabel()
 		labelDone := c.NewLabel()
 
-		suite := node.Children[1].(ParseNode)
+		suite := node.Children[1]
 
 		c.EmitLabel(labelStart)
 
-		c.RunInstruction(node.Children[0].(ParseNode), startLabel, endLabel)
+		c.RunInstruction(node.Children[0], startLabel, endLabel)
 
 		c.Emit(
 			CInstruction{
@@ -524,7 +524,7 @@ func (c *Compiler) RunInstruction(node ParseNode, startLabel string, endLabel st
 		)
 
 		for _, child := range suite.Children {
-			c.RunInstruction(child.(ParseNode), labelStart, labelDone)
+			c.RunInstruction(child, labelStart, labelDone)
 		}
 
 		c.Emit(
@@ -551,7 +551,7 @@ func (c *Compiler) RunInstruction(node ParseNode, startLabel string, endLabel st
 			},
 		)
 	case "return_stmt":
-		c.RunInstruction(node.Children[0].(ParseNode), startLabel, endLabel)
+		c.RunInstruction(node.Children[0], startLabel, endLabel)
 		c.Emit(
 			CInstruction{
 				Op: OP_RETURN,
@@ -568,14 +568,14 @@ func (c *Compiler) RunInstruction(node ParseNode, startLabel string, endLabel st
 		label_done:
 			...
 		*/
-		suite := node.Children[1].(ParseNode)
-		elseSuite := node.Children[2].(ParseNode)
+		suite := node.Children[1]
+		elseSuite := node.Children[2]
 
 		labelFalse := c.NewLabel()
 		labelDone := c.NewLabel()
 
 		// EVAL condition
-		c.RunInstruction(node.Children[0].(ParseNode), startLabel, endLabel)
+		c.RunInstruction(node.Children[0], startLabel, endLabel)
 
 		// JUMP_IF_NOT label_false
 		c.Emit(
@@ -588,7 +588,7 @@ func (c *Compiler) RunInstruction(node ParseNode, startLabel string, endLabel st
 		// truthy body
 
 		for _, child := range suite.Children {
-			c.RunInstruction(child.(ParseNode), startLabel, endLabel)
+			c.RunInstruction(child, startLabel, endLabel)
 		}
 
 		c.Emit(
@@ -603,7 +603,7 @@ func (c *Compiler) RunInstruction(node ParseNode, startLabel string, endLabel st
 		// falsey body
 
 		for _, child := range elseSuite.Children {
-			c.RunInstruction(child.(ParseNode), startLabel, endLabel)
+			c.RunInstruction(child, startLabel, endLabel)
 		}
 
 		c.EmitLabel(labelDone)
@@ -611,11 +611,11 @@ func (c *Compiler) RunInstruction(node ParseNode, startLabel string, endLabel st
 		break
 	// function bullshit
 	case "func_call":
-		funcName := node.Children[0].(ParseNode).Data
+		funcName := node.Children[0].Data
 
 		// pushing arguments onto the stack
 		for j := 1; j < len(node.Children); j++ {
-			c.RunInstruction(node.Children[j].(ParseNode), startLabel, endLabel)
+			c.RunInstruction(node.Children[j], startLabel, endLabel)
 		}
 
 		_, ok := c.Functions[funcName]
@@ -690,7 +690,7 @@ func (c *Compiler) Start() {
 
 func (c *Compiler) RunTree() {
 	for _, node := range c.Tree.Children {
-		c.RunInstruction(node.(ParseNode), "", "")
+		c.RunInstruction(node, "", "")
 	}
 	c.CurrentOutput = append(c.CurrentOutput, CInstruction{Op: OP_NOP})
 	c.FinalOutput = c.CurrentOutput

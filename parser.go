@@ -12,8 +12,8 @@ type ParseNode struct {
 	Name string
 	Data string
 
-	Parent   any
-	Children []any
+	Parent   *ParseNode
+	Children []*ParseNode
 }
 
 type Parser struct {
@@ -64,12 +64,12 @@ func (p *Parser) ExpectNoAdvance(tType string) Token {
 	return t
 }
 
-func (p *Parser) ParseAtom(currentNode ParseNode) ParseNode {
+func (p *Parser) ParseAtom(currentNode *ParseNode) *ParseNode {
 	currTok := p.Next()
 
 	switch currTok.TokenType {
 	case "left_square_token":
-		arrNode := ParseNode{Name: "array", Parent: currentNode, Children: make([]any, 0)}
+		arrNode := &ParseNode{Name: "array", Parent: currentNode, Children: make([]*ParseNode, 0)}
 		if p.PeekNext().TokenType != "right_square_token" {
 			for p.Pos < len(p.Tokens) {
 				expr := p.ParseExpr(arrNode)
@@ -85,13 +85,13 @@ func (p *Parser) ParseAtom(currentNode ParseNode) ParseNode {
 		p.Expect("right_square_token")
 		return arrNode
 	case "left_curly_token":
-		mapNode := ParseNode{Name: "map", Parent: currentNode, Children: make([]any, 0)}
+		mapNode := &ParseNode{Name: "map", Parent: currentNode, Children: make([]*ParseNode, 0)}
 		if p.PeekNext().TokenType != "right_curly_token" {
 			for p.Pos < len(p.Tokens) {
 				name := p.ParseExpr(mapNode)
 				p.Expect("equal_token")
 				expr := p.ParseExpr(mapNode)
-				mapNode.Children = append(mapNode.Children, ParseNode{Name: "map_element", Parent: mapNode, Children: []any{name, expr}})
+				mapNode.Children = append(mapNode.Children, &ParseNode{Name: "map_element", Parent: mapNode, Children: []*ParseNode{name, expr}})
 				if p.PeekNext().TokenType == "right_curly_token" {
 					break
 				}
@@ -103,13 +103,13 @@ func (p *Parser) ParseAtom(currentNode ParseNode) ParseNode {
 		p.Expect("right_curly_token")
 		return mapNode
 	case "int_literal", "float_literal", "bool_literal", "string_literal", "null_literal":
-		return ParseNode{Name: currTok.TokenType, Data: currTok.TokenValue, Parent: currentNode}
+		return &ParseNode{Name: currTok.TokenType, Data: currTok.TokenValue, Parent: currentNode}
 	case "muldiv_operator", "addsub_operator", "comparison_operator", "equality_operator":
-		return ParseNode{Name: currTok.TokenType, Data: currTok.TokenValue, Parent: currentNode}
+		return &ParseNode{Name: currTok.TokenType, Data: currTok.TokenValue, Parent: currentNode}
 	case "and_operator", "or_operator", "not_operator":
-		return ParseNode{Name: currTok.TokenType, Data: currTok.TokenType, Parent: currentNode}
+		return &ParseNode{Name: currTok.TokenType, Data: currTok.TokenType, Parent: currentNode}
 	case "new_keyword":
-		structNode := ParseNode{Name: "struct_instance", Parent: currentNode, Children: make([]any, 0)}
+		structNode := &ParseNode{Name: "struct_instance", Parent: currentNode, Children: make([]*ParseNode, 0)}
 		nameNode := p.ParseAtom(structNode)
 		if nameNode.Name != "name" {
 			fmt.Println("ERROR: Expected struct name after new keyword.")
@@ -138,13 +138,13 @@ func (p *Parser) ParseAtom(currentNode ParseNode) ParseNode {
 	case "identifier":
 		if p.PeekNext().TokenType == "left_paren_token" {
 			// func call
-			callNode := ParseNode{Name: "func_call", Parent: currentNode}
+			callNode := &ParseNode{Name: "func_call", Parent: currentNode}
 
 			funcName := currTok.TokenValue
 
 			p.Next()
 
-			expressions := make([]ParseNode, 0)
+			expressions := make([]*ParseNode, 0)
 			nextToken := p.PeekNext()
 			if nextToken.TokenType != "right_paren_token" {
 				for p.Pos < len(p.Tokens) {
@@ -163,7 +163,7 @@ func (p *Parser) ParseAtom(currentNode ParseNode) ParseNode {
 
 			nameNode := ParseNode{Name: "name", Data: funcName, Parent: callNode}
 
-			callNode.Children = []any{nameNode}
+			callNode.Children = []*ParseNode{&nameNode}
 
 			for _, expr := range expressions {
 				callNode.Children = append(callNode.Children, expr)
@@ -175,20 +175,20 @@ func (p *Parser) ParseAtom(currentNode ParseNode) ParseNode {
 			fieldNode := ParseNode{Name: "access_field", Parent: currentNode}
 
 			structName := currTok.TokenValue
-			nameNode := ParseNode{Name: "name", Data: structName, Parent: fieldNode}
+			nameNode := ParseNode{Name: "name", Data: structName, Parent: &fieldNode}
 
-			fieldNode.Children = []any{nameNode}
+			fieldNode.Children = []*ParseNode{&nameNode}
 
 			for p.PeekNext().TokenType == "period_token" {
 				p.Expect("period_token")
-				nextNode := ParseNode{Name: "name", Data: p.Next().TokenValue, Parent: fieldNode}
-				fieldNode.Children = append(fieldNode.Children, nextNode)
+				nextNode := ParseNode{Name: "name", Data: p.Next().TokenValue, Parent: &fieldNode}
+				fieldNode.Children = append(fieldNode.Children, &nextNode)
 			}
 
-			return fieldNode
+			return &fieldNode
 		} else if slices.Contains(p.BasicTypes, currTok.TokenValue) {
-			typeNode := ParseNode{Name: "type", Data: currTok.TokenValue}
-			children := []any{ParseNode{Name: "nullable", Data: "false", Parent: typeNode}, ParseNode{Name: "name", Data: currTok.TokenValue, Parent: typeNode}}
+			typeNode := &ParseNode{Name: "type", Data: currTok.TokenValue}
+			children := []*ParseNode{{Name: "bool_literal", Data: "false", Parent: typeNode}, {Name: "name", Data: currTok.TokenValue, Parent: typeNode}}
 
 			if p.PeekNext().TokenType == "comparison_operator" && p.PeekNext().TokenValue == "lesser" {
 				p.Next()
@@ -207,22 +207,22 @@ func (p *Parser) ParseAtom(currentNode ParseNode) ParseNode {
 			}
 			if p.PeekNext().TokenType == "question_token" {
 				p.Next()
-				children[0] = ParseNode{Name: "nullable", Data: "true", Parent: typeNode}
+				children[0] = &ParseNode{Name: "bool_literal", Data: "true", Parent: typeNode}
 			}
 			typeNode.Children = children
 			return typeNode
 		}
-		return ParseNode{Name: "name", Data: currTok.TokenValue, Parent: currentNode}
+		return &ParseNode{Name: "name", Data: currTok.TokenValue, Parent: currentNode}
 	case "left_paren_token":
 		expr := p.ParseExpr(currentNode)
 		p.Expect("right_paren_token")
 		return expr
 	}
 
-	return ParseNode{}
+	return &ParseNode{}
 }
 
-func (p *Parser) ParseGetItem(currentNode ParseNode) ParseNode {
+func (p *Parser) ParseGetItem(currentNode *ParseNode) *ParseNode {
 	left := p.ParseAtom(currentNode)
 
 	if p.PeekNext().TokenType == "left_square_token" {
@@ -234,41 +234,41 @@ func (p *Parser) ParseGetItem(currentNode ParseNode) ParseNode {
 		for p.Pos < len(p.Tokens) {
 			p.Next()
 
-			itemNode.Children = append(itemNode.Children, p.ParseExpr(itemNode))
+			itemNode.Children = append(itemNode.Children, p.ParseExpr(&itemNode))
 			p.Expect("right_square_token")
 			if p.PeekNext().TokenType != "left_square_token" {
 				break
 			}
 		}
 
-		return itemNode
+		return &itemNode
 	}
 
 	return left
 }
 
-func (p *Parser) ParseTerm(currentNode ParseNode) ParseNode {
+func (p *Parser) ParseTerm(currentNode *ParseNode) *ParseNode {
 	left := p.ParseGetItem(currentNode)
 
 	for p.PeekNext().TokenType == "muldiv_operator" {
 		operator := p.ParseGetItem(currentNode)
 		right := p.ParseGetItem(currentNode)
 
-		children := []any{left, operator, right}
+		children := []*ParseNode{left, operator, right}
 
-		left = ParseNode{Name: "muldiv_operation", Parent: currentNode, Children: children}
+		left = &ParseNode{Name: "muldiv_operation", Parent: currentNode, Children: children}
 	}
 
 	return left
 }
 
-func (p *Parser) ParseAddSub(currentNode ParseNode) ParseNode {
+func (p *Parser) ParseAddSub(currentNode *ParseNode) *ParseNode {
 	left := p.ParseTerm(currentNode)
 
 	if left.Name == "addsub_operator" && left.Data == "minus" {
 		expr := p.ParseEquality(currentNode)
-		children := []any{expr}
-		left = ParseNode{Name: "unary_negate_operation", Parent: currentNode, Children: children}
+		children := []*ParseNode{expr}
+		left = &ParseNode{Name: "unary_negate_operation", Parent: currentNode, Children: children}
 		return left;
 	}
 
@@ -276,110 +276,110 @@ func (p *Parser) ParseAddSub(currentNode ParseNode) ParseNode {
 		operator := p.ParseTerm(currentNode)
 		right := p.ParseTerm(currentNode)
 
-		children := []any{left, operator, right}
+		children := []*ParseNode{left, operator, right}
 
-		left = ParseNode{Name: "addsub_operation", Parent: currentNode, Children: children}
+		left =& ParseNode{Name: "addsub_operation", Parent: currentNode, Children: children}
 	}
 
 	return left
 }
 
-func (p *Parser) ParseComp(currentNode ParseNode) ParseNode {
+func (p *Parser) ParseComp(currentNode *ParseNode) *ParseNode {
 	left := p.ParseAddSub(currentNode)
 
 	for p.PeekNext().TokenType == "comparison_operator" {
 		operator := p.ParseAddSub(currentNode)
 		right := p.ParseAddSub(currentNode)
 
-		children := []any{left, operator, right}
+		children := []*ParseNode{left, operator, right}
 
-		left = ParseNode{Name: "comparison_operation", Parent: currentNode, Children: children}
+		left = &ParseNode{Name: "comparison_operation", Parent: currentNode, Children: children}
 	}
 
 	return left
 }
 
-func (p *Parser) ParseEquality(currentNode ParseNode) ParseNode {
+func (p *Parser) ParseEquality(currentNode *ParseNode) *ParseNode {
 	left := p.ParseComp(currentNode)
 
 	for p.PeekNext().TokenType == "equality_operator" {
 		operator := p.ParseComp(currentNode)
 		right := p.ParseComp(currentNode)
 
-		children := []any{left, operator, right}
+		children := []*ParseNode{left, operator, right}
 
-		left = ParseNode{Name: "equality_operation", Parent: currentNode, Children: children}
+		left = &ParseNode{Name: "equality_operation", Parent: currentNode, Children: children}
 	}
 
 	return left
 }
 
-func (p *Parser) ParseNotFactor(currentNode ParseNode) ParseNode {
+func (p *Parser) ParseNotFactor(currentNode *ParseNode) *ParseNode {
 	left := p.ParseEquality(currentNode)
 
 	if left.Name == "not_operator" {
 		expr := p.ParseEquality(currentNode)
-		children := []any{expr}
-		left = ParseNode{Name: "not_operation", Parent: currentNode, Children: children}
+		children := []*ParseNode{expr}
+		left = &ParseNode{Name: "not_operation", Parent: currentNode, Children: children}
 	}
 
 	return left
 }
 
-func (p *Parser) ParseAndFactor(currentNode ParseNode) ParseNode {
+func (p *Parser) ParseAndFactor(currentNode *ParseNode) *ParseNode {
 	left := p.ParseNotFactor(currentNode)
 
 	for p.PeekNext().TokenType == "and_operator" {
 		p.ParseNotFactor(currentNode)
 		right := p.ParseNotFactor(currentNode)
 
-		children := []any{left, right}
+		children := []*ParseNode{left, right}
 
-		left = ParseNode{Name: "and_operation", Parent: currentNode, Children: children}
+		left = &ParseNode{Name: "and_operation", Parent: currentNode, Children: children}
 	}
 
 	return left
 }
 
-func (p *Parser) ParseExpr(currentNode ParseNode) ParseNode {
+func (p *Parser) ParseExpr(currentNode *ParseNode) *ParseNode {
 	left := p.ParseAndFactor(currentNode)
 
 	for p.PeekNext().TokenType == "or_operator" {
 		p.ParseAndFactor(currentNode)
 		right := p.ParseAndFactor(currentNode)
 
-		children := []any{left, right}
+		children := []*ParseNode{left, right}
 
-		left = ParseNode{Name: "or_operation", Parent: currentNode, Children: children}
+		left = &ParseNode{Name: "or_operation", Parent: currentNode, Children: children}
 	}
 
 	return left
 }
 
-func (p *Parser) Parse(currentNode ParseNode) ParseNode {
+func (p *Parser) Parse(currentNode *ParseNode) *ParseNode {
 	startPos := p.Pos
 	tok := p.Next()
 	
 	if tok.TokenType == "right_curly_token" {
 		// let the enclosing block consume it
 		p.Pos--
-		return ParseNode{}
+		return &ParseNode{}
 	}
 
 	if tok.TokenType == "pass_keyword" {
-		stmt := ParseNode{Name: "pass_stmt", Parent: currentNode}
+		stmt := &ParseNode{Name: "pass_stmt", Parent: currentNode}
 		p.Expect("semicolon_token")
 		return stmt
 	} else if tok.TokenType == "continue_keyword" {
-		stmt := ParseNode{Name: "continue_stmt", Parent: currentNode}
+		stmt := &ParseNode{Name: "continue_stmt", Parent: currentNode}
 		p.Expect("semicolon_token")
 		return stmt
 	} else if tok.TokenType == "break_keyword" {
-		stmt := ParseNode{Name: "break_stmt", Parent: currentNode}
+		stmt := &ParseNode{Name: "break_stmt", Parent: currentNode}
 		p.Expect("semicolon_token")
 		return stmt
 	} else if tok.TokenType == "return_keyword" {
-		stmt := ParseNode{Name: "return_stmt", Parent: currentNode}
+		stmt := &ParseNode{Name: "return_stmt", Parent: currentNode}
 		stmt.Children = append(stmt.Children, p.ParseExpr(stmt))
 		p.Expect("semicolon_token")
 		return stmt
@@ -408,18 +408,18 @@ func (p *Parser) Parse(currentNode ParseNode) ParseNode {
 			p.TreeNode.Children = append(p.TreeNode.Children, child)
 		}
 
-		return ParseNode{Name: "pass_stmt", Parent: currentNode}
+		return &ParseNode{Name: "pass_stmt", Parent: currentNode}
 	} else if tok.TokenType == "fn_keyword" {
-		declNode := ParseNode{Name: "func_decl", Parent: currentNode}
+		declNode := &ParseNode{Name: "func_decl", Parent: currentNode}
 
 		funcName := p.Expect("identifier").TokenValue
 		p.Expect("left_paren_token")
 		// arguments
-		args := ParseNode{Name: "args", Parent: declNode}
+		args := &ParseNode{Name: "args", Parent: declNode}
 
 		if p.PeekNext().TokenType != "right_paren_token" {
 			for p.Pos < len(p.Tokens) {
-				arg := ParseNode{Name: "argument", Parent: args}
+				arg := &ParseNode{Name: "argument", Parent: args}
 
 				p.ExpectNoAdvance("identifier")
 				arg.Children = append(arg.Children, p.ParseAtom(declNode))
@@ -449,7 +449,7 @@ func (p *Parser) Parse(currentNode ParseNode) ParseNode {
 		p.Expect("left_curly_token")
 		// suite
 
-		suite := ParseNode{Name: "suite", Parent: declNode}
+		suite := &ParseNode{Name: "suite", Parent: declNode}
 
 		for p.Pos < len(p.Tokens) {
 			suite.Children = append(suite.Children, p.Parse(suite))
@@ -460,22 +460,22 @@ func (p *Parser) Parse(currentNode ParseNode) ParseNode {
 		// FIXME
 		p.Expect("right_curly_token")
 
-		nameNode := ParseNode{Name: "name", Data: funcName, Parent: declNode}
+		nameNode := &ParseNode{Name: "name", Data: funcName, Parent: declNode}
 
-		declNode.Children = []any{nameNode, args, returnType, suite}
+		declNode.Children = []*ParseNode{nameNode, args, returnType, suite}
 
 		return declNode
 	} else if tok.TokenType == "st_keyword" {
-		declNode := ParseNode{Name: "struct_decl", Parent: currentNode}
+		declNode := &ParseNode{Name: "struct_decl", Parent: currentNode}
 
 		structName := p.Expect("identifier").TokenValue
 		p.Expect("left_curly_token")
 		// fields
-		fields := ParseNode{Name: "fields", Parent: declNode}
+		fields := &ParseNode{Name: "fields", Parent: declNode}
 
 		if p.PeekNext().TokenType != "right_curly_token" {
 			for p.Pos < len(p.Tokens) {
-				arg := ParseNode{Name: "field", Parent: fields}
+				arg := &ParseNode{Name: "field", Parent: fields}
 
 				p.ExpectNoAdvance("identifier")
 				arg.Children = append(arg.Children, p.ParseAtom(declNode))
@@ -499,13 +499,13 @@ func (p *Parser) Parse(currentNode ParseNode) ParseNode {
 
 		p.Expect("right_curly_token")
 
-		nameNode := ParseNode{Name: "name", Data: structName, Parent: declNode}
+		nameNode := &ParseNode{Name: "name", Data: structName, Parent: declNode}
 
-		declNode.Children = []any{nameNode, fields}
+		declNode.Children = []*ParseNode{nameNode, fields}
 
 		return declNode
 	} else if tok.TokenType == "while_keyword" {
-		whileNode := ParseNode{Name: "while_stmt", Parent: currentNode}
+		whileNode :=& ParseNode{Name: "while_stmt", Parent: currentNode}
 
 		p.Expect("left_paren_token")
 		// arguments
@@ -516,7 +516,7 @@ func (p *Parser) Parse(currentNode ParseNode) ParseNode {
 		p.Expect("left_curly_token")
 		// suite
 
-		suite := ParseNode{Name: "suite", Parent: whileNode}
+		suite := &ParseNode{Name: "suite", Parent: whileNode}
 
 		for p.Pos < len(p.Tokens) {
 			suite.Children = append(suite.Children, p.Parse(suite))
@@ -526,12 +526,12 @@ func (p *Parser) Parse(currentNode ParseNode) ParseNode {
 		}
 		p.Expect("right_curly_token")
 
-		whileNode.Children = []any{condition, suite}
+		whileNode.Children = []*ParseNode{condition, suite}
 
 		return whileNode
 	} else if tok.TokenType == "if_keyword" {
 
-		ifNode := ParseNode{Name: "if_stmt", Parent: currentNode}
+		ifNode := &ParseNode{Name: "if_stmt", Parent: currentNode}
 
 		p.Expect("left_paren_token")
 		// arguments
@@ -542,7 +542,7 @@ func (p *Parser) Parse(currentNode ParseNode) ParseNode {
 		p.Expect("left_curly_token")
 		// suite
 
-		suite := ParseNode{Name: "suite", Parent: ifNode}
+		suite := &ParseNode{Name: "suite", Parent: ifNode}
 
 		for p.Pos < len(p.Tokens) {
 			suite.Children = append(suite.Children, p.Parse(suite))
@@ -552,7 +552,7 @@ func (p *Parser) Parse(currentNode ParseNode) ParseNode {
 		}
 		p.Expect("right_curly_token")
 
-		elseSuite := ParseNode{Name: "suite", Parent: ifNode}
+		elseSuite := &ParseNode{Name: "suite", Parent: ifNode}
 		if p.PeekNext().TokenType == "else_keyword" {
 			p.Next()
 			if p.PeekNext().TokenType == "if_keyword" {
@@ -569,11 +569,11 @@ func (p *Parser) Parse(currentNode ParseNode) ParseNode {
 			}
 		}
 
-		ifNode.Children = []any{condition, suite, elseSuite}
+		ifNode.Children = []*ParseNode{condition, suite, elseSuite}
 
 		return ifNode
 	} else if tok.TokenType == "loop_keyword" {
-		loopNode := ParseNode{Name: "loop_stmt", Parent: currentNode}
+		loopNode := &ParseNode{Name: "loop_stmt", Parent: currentNode}
 
 		p.Expect("left_paren_token")
 		values := p.ParseExpr(loopNode)
@@ -592,7 +592,7 @@ func (p *Parser) Parse(currentNode ParseNode) ParseNode {
 		p.Expect("left_curly_token")
 		// suite
 
-		suite := ParseNode{Name: "suite", Parent: loopNode}
+		suite := &ParseNode{Name: "suite", Parent: loopNode}
 
 		for p.Pos < len(p.Tokens) {
 			suite.Children = append(suite.Children, p.Parse(suite))
@@ -602,11 +602,11 @@ func (p *Parser) Parse(currentNode ParseNode) ParseNode {
 		}
 		p.Expect("right_curly_token")
 
-		loopNode.Children = []any{values, varName, varType, suite}
+		loopNode.Children = []*ParseNode{values, varName, varType, suite}
 
 		return loopNode
 	} else if tok.TokenType == "var_keyword" {
-		declNode := ParseNode{Name: "variable_decl", Parent: currentNode}
+		declNode := &ParseNode{Name: "variable_decl", Parent: currentNode}
 
 		varName := p.Expect("identifier").TokenValue // expect identifier and get its value
 		p.Expect("colon_token")                      // expect colon
@@ -616,9 +616,9 @@ func (p *Parser) Parse(currentNode ParseNode) ParseNode {
 		expr := p.ParseExpr(declNode)
 		p.ExpectNoAdvance("semicolon_token") // expect semicolon after the expression
 
-		nameNode := ParseNode{Name: "name", Data: varName, Parent: declNode}
+		nameNode := &ParseNode{Name: "name", Data: varName, Parent: declNode}
 
-		declNode.Children = []any{nameNode, varType, expr}
+		declNode.Children = []*ParseNode{nameNode, varType, expr}
 
 		return declNode
 	} else if tok.TokenType == "identifier" {
@@ -629,10 +629,10 @@ func (p *Parser) Parse(currentNode ParseNode) ParseNode {
 			p.Next()
 
 			// func call
-			callNode := ParseNode{Name: "func_call", Parent: currentNode}
+			callNode := &ParseNode{Name: "func_call", Parent: currentNode}
 
 			funcName := tok.TokenValue // expect identifier and get its value
-			expressions := make([]ParseNode, 0)
+			expressions := make([]*ParseNode, 0)
 			nextToken := p.PeekNext()
 			if nextToken.TokenType != "right_paren_token" {
 				for p.Pos < len(p.Tokens) {
@@ -649,9 +649,9 @@ func (p *Parser) Parse(currentNode ParseNode) ParseNode {
 			p.Expect("right_paren_token")
 			p.Expect("semicolon_token") // expect semicolon after the expression
 
-			nameNode := ParseNode{Name: "name", Data: funcName, Parent: currentNode}
+			nameNode := &ParseNode{Name: "name", Data: funcName, Parent: currentNode}
 
-			callNode.Children = []any{nameNode}
+			callNode.Children = []*ParseNode{nameNode}
 
 			for _, expr := range expressions {
 				callNode.Children = append(callNode.Children, expr)
@@ -659,7 +659,7 @@ func (p *Parser) Parse(currentNode ParseNode) ParseNode {
 
 			return callNode
 		} else if nextToken.TokenType == "equal_token" || nextToken.TokenType == "left_square_token" || nextToken.TokenType == "period_token" {
-			mutNode := ParseNode{Name: "mut_stmt", Parent: currentNode}
+			mutNode := &ParseNode{Name: "mut_stmt", Parent: currentNode}
 
 			// mut stmt
 			p.Pos--
@@ -668,7 +668,7 @@ func (p *Parser) Parse(currentNode ParseNode) ParseNode {
 			expr := p.ParseExpr(mutNode)
 			p.ExpectNoAdvance("semicolon_token") // expect semicolon after the expression
 
-			mutNode.Children = []any{varName, expr}
+			mutNode.Children = []*ParseNode{varName, expr}
 
 			return mutNode
 		}
@@ -679,7 +679,7 @@ func (p *Parser) Parse(currentNode ParseNode) ParseNode {
 		p.Pos++
 	}
 
-	return ParseNode{}
+	return &ParseNode{}
 }
 
 func (p *Parser) LookUntil(tokenType string, accepted []string) *Token {
@@ -708,12 +708,12 @@ func (p *Parser) ParseAll() {
 	p.TreeNode.Name = "start"
 
 	p.TreeNode.Parent = nil
-	p.TreeNode.Children = make([]any, 0)
+	p.TreeNode.Children = make([]*ParseNode, 0)
 
 	p.Pos = -1
 
 	for p.Pos < len(p.Tokens) {
-		p.TreeNode.Children = append(p.TreeNode.Children, p.Parse(p.TreeNode))
+		p.TreeNode.Children = append(p.TreeNode.Children, p.Parse(&p.TreeNode))
 	}
 }
 
@@ -730,15 +730,11 @@ func (n *ParseNode) PrintNode(depth int) {
 	fmt.Println(repr)
 }
 
-func PrintParseNode(n ParseNode, depth int) {
+func PrintParseNode(n *ParseNode, depth int) {
 	n.PrintNode(depth)
 
 	for _, c := range n.Children {
-		child, ok := c.(ParseNode)
-		if !ok {
-			return
-		}
-		PrintParseNode(child, depth+1)
+		PrintParseNode(c, depth+1)
 	}
 }
 
@@ -750,5 +746,5 @@ func (p *Parser) PrettyPrint() {
 	if _, err := f.Write([]byte{}); err != nil {
 		log.Fatal(err)
 	}
-	PrintParseNode(p.TreeNode, 0)
+	PrintParseNode(&p.TreeNode, 0)
 }
